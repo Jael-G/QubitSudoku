@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✏️</text></svg>">
+  <title>Sudoku Solver</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #f7f7f7;
+    }
+
+    .active-cell {
+      background-color: #e9e9e9;
+    }
+
+    h1 {
+      text-align: center;
+      letter-spacing: 8px;
+      font-size: 40px;
+      font-weight: lighter;
+      margin-bottom: 20px;
+    }
+
+
+    table {
+      border: 2px solid #000000;
+      border-collapse: collapse;
+    }
+
+    td {
+      text-align: center;
+      border: 1px dotted black;
+      vertical-align: middle;
+    }
+
+    [class$="-col2"],
+    [class$="-col5"] {
+      border-right: 1px solid rgb(49, 49, 49);
+    }
+
+    [class^="row2"],
+    [class^="row5"] {
+      border-bottom: 1px solid rgb(49, 49, 49);
+    }
+
+
+    tr {
+      border-collapse: collapse;
+      border: 1px dotted rgb(49, 49, 49);
+    }
+
+    #tr1 {
+      border-bottom: 1px solid rgb(49, 49, 49);
+    }
+
+    input {
+      color: #000000;
+      padding: 0;
+      border: 0;
+      text-align: center;
+      width: 48px;
+      height: 48px;
+      font-size: 24px;
+      background-color: #ffffff;
+      outline: none;
+    }
+
+    input:disabled {
+      background-color: #EEEEEE;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      border: none;
+      margin-top: 20px;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    #submitButton{
+      background-color: #4CAF50;
+    }
+    #submitButton:hover{
+      background-color: #5cd860;
+    }
+
+    #clearButton{
+      background-color: #4c6daf;
+    }
+
+    #clearButton:hover{
+      background-color: #5c84d5;
+    }
+
+    
+
+  </style>
+</head>
+
+<body>
+  <h1>Sudoku Solver</h1>
+  <table border="1">
+    {% for i in range(9) %}
+    <tr id="row{{i}}">
+      {% for j in range(9) %}
+      <td class="row{{i}}-col{{j}}"><input type="text" class="col{{j}}" /></td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+  <button id="submitButton" onclick="submitArray()">Submit</button>
+  <button id="clearButton" onclick="clearArray()">Clear</button>
+  <script>
+
+    //Variables to determine the activeCell
+    let activeRow = 0;
+    let activeCol = 0;
+
+    //Use arrow keys to move accross board and update activeCell
+    document.addEventListener('keydown', function (event) {
+      switch (event.key) {
+        case 'ArrowLeft':
+          if (activeCol > 0) {
+            activeCol--;
+            updateActiveCell();
+          }
+          break;
+        case 'ArrowRight':
+          if (activeCol < 8) {
+            activeCol++;
+            updateActiveCell();
+          }
+          break;
+        case 'ArrowUp':
+          if (activeRow > 0) {
+            activeRow--;
+            updateActiveCell();
+          }
+          break;
+        case 'ArrowDown':
+          if (activeRow < 8) {
+            activeRow++;
+            updateActiveCell();
+          }
+          break;
+      }
+    });
+
+    //Update activeCell when input is clicked
+    var inputFields = document.querySelectorAll("input[type=text]");
+    inputFields.forEach(function (inputField) {
+      inputField.addEventListener("click", function () {
+        var parenttd = inputField.parentElement;
+        var tdClass = parenttd.getAttribute("class");
+        activeRow = parseInt(tdClass.split("row")[1][0]);
+        activeCol = parseInt(tdClass.split("col")[1][0]);
+        updateActiveCell();
+      });
+    });
+
+    //Updates the current activeCell using activeRow and activeCol (for color update)
+    function updateActiveCell() {
+      let previousActiveCell = document.querySelector('.active-cell');
+      if (previousActiveCell) {
+        previousActiveCell.classList.remove('active-cell');
+      }
+
+      let activeCell = document.querySelector('.row' + activeRow + '-col' + activeCol + ' input');
+      activeCell.classList.add('active-cell');
+      activeCell.focus();
+    }
+  </script>
+
+  <script>
+    // Gets the input values and put thems in 2D array
+    function getArray() {
+      let sudoku_array = [];
+
+      for (let i = 0; i < 9; i++) {
+        let row = [];
+        let row_id = "row" + i;
+
+        for (let j = 0; j < 9; j++) {
+          let col_id = "col" + j;
+          let cell_value = document.getElementById(row_id).getElementsByClassName(col_id)[0].value;
+
+          if (cell_value == "") {
+            row.push(0);
+          } else {
+            row.push(cell_value);
+            document.getElementsByClassName(row_id + "-" + col_id)[0].style.backgroundColor = "#72b2dd";
+            document.getElementById(row_id).getElementsByClassName(col_id)[0].style.backgroundColor = "#72b2dd"
+          }
+        }
+
+        sudoku_array.push(row);
+      }
+
+      return sudoku_array;
+    }
+
+    //POSTs current array to solve it
+    function submitArray() {
+      let array = getArray();
+
+      fetch("/solve_sudoku", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ sudokuArray: array })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
+        .then(data => {
+          pasteSolvedArray(data.solvedArray);
+        })
+        .catch(error => {
+          console.error('There has been a problem with your fetch operation:', error);
+        });
+    }
+
+    function clearArray() {
+      for (let i = 0; i < 9; i++) {
+        let row = [];
+        let row_id = "row" + i;
+
+        for (let j = 0; j < 9; j++) {
+          let col_id = "col" + j;
+          document.getElementById(row_id).getElementsByClassName(col_id)[0].value = "";
+          document.getElementsByClassName(row_id + "-" + col_id)[0].style.backgroundColor = "#ffffff";
+          document.getElementById(row_id).getElementsByClassName(col_id)[0].style.backgroundColor = "#ffffff"
+        }
+      }
+    }
+
+    //Fills input fields with the received solved array
+    function pasteSolvedArray(array) {
+
+      if (array == null) {
+        alert("Unsolvable Sudoku");
+      } else {
+        for (let i = 0; i < 9; i++) {
+          let row = array[i];
+          console.log(row)
+          let row_id = "row" + i;
+
+          for (let j = 0; j < 9; j++) {
+            let col_id = "col" + j;
+            document.getElementById(row_id).getElementsByClassName(col_id)[0].value = row[j];
+          }
+
+        }
+      }
+    }
+
+  </script>
+
+  <script>
+    // Code for flaskwebgui
+
+    async function getRequest(url = '') {
+      const response = await fetch(url, {
+        method: 'GET',
+        cache: 'no-cache'
+      })
+      return response.json()
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      let url = document.location
+      let route = "/flaskwebgui-keep-server-alive"
+      let interval_request = 3 * 1000 //sec
+      function keep_alive_server() {
+        getRequest(url + route)
+          .then(data => console.log(data))
+      }
+      setInterval(keep_alive_server, interval_request)()
+    })
+  </script>
+</body>
+
+</html>
